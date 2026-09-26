@@ -1,0 +1,12 @@
+{
+  "ID": "7bf70f7c-1aa6-4b41-9eeb-6a794a9f192e",
+  "ActionKeyword": "ss",
+  "Name": "SoundSwitch",
+  "Description": "Alterne dispositivos de reprodução, gravação, ative perfis e controle o mudo com SoundSwitch.",
+  "Author": "landrozaum",
+  "Version": "1.0.0",
+  "Language": "python",
+  "ExecuteFileName": "main.py",
+  "IcoPath": "Images/icon.png",
+  "Website": "https://github.com/landrozaum/SoundSwitch-Plugin-For-FlowLauncher"
+}
