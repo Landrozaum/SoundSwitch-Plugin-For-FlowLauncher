@@ -273,12 +273,8 @@ class SoundSwitchPlugin(FlowLauncher):
         # 4. Connected Playback Devices (Direct Target Switch)
         for dev in pb_devs:
             is_curr = bool(current_playback and (dev.lower() == current_playback.lower() or dev.lower() in current_playback.lower()))
-            if is_curr:
-                dev_title = f"{self.t['output_prefix']}: {dev} ✓ {self.t['active_badge']}"
-                dev_sub = self.t["device_active_sub"]
-            else:
-                dev_title = f"{self.t['output_prefix']}: {dev}"
-                dev_sub = self.t["device_switch_playback_sub"]
+            dev_title = f"{dev} ✓ {self.t['active_badge']}" if is_curr else dev
+            dev_sub = self.t["device_active_sub"] if is_curr else self.t["device_switch_playback_sub"]
 
             results.append({
                 "Title": dev_title,
@@ -296,12 +292,8 @@ class SoundSwitchPlugin(FlowLauncher):
         # 5. Connected Recording Devices (Direct Target Switch)
         for dev in rec_devs:
             is_curr = bool(current_recording and (dev.lower() == current_recording.lower() or dev.lower() in current_recording.lower()))
-            if is_curr:
-                dev_title = f"{self.t['input_prefix']}: {dev} ✓ {self.t['active_badge']}"
-                dev_sub = self.t["device_active_sub"]
-            else:
-                dev_title = f"{self.t['input_prefix']}: {dev}"
-                dev_sub = self.t["device_switch_recording_sub"]
+            dev_title = f"{dev} ✓ {self.t['active_badge']}" if is_curr else dev
+            dev_sub = self.t["device_active_sub"] if is_curr else self.t["device_switch_recording_sub"]
 
             results.append({
                 "Title": dev_title,
