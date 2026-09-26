@@ -91,6 +91,23 @@ SoundSwitch-Plugin-For-FlowLauncher/
 
 ---
 
+## 📜 Histórico de Versões
+
+### 🚀 v1.1.0 (Versão Atual)
+- **Zero-Latency Instant Query**: Otimização profunda de performance eliminando chamadas síncronas de subprocessos durante a busca.
+- **Ações Imediatas com Enter**: Digitar `ss` e apertar <kbd>Enter</kbd> agora funciona no mesmo milissegundo.
+- **Leitura Direta de Configurações**: Leitura instantânea (< 1 ms) do arquivo `SoundSwitchConfiguration.json` para dispositivos e perfis.
+- **Cache Inteligente em Background**: Atualização assíncrona do status dos dispositivos e estado de mudo em thread secundária sem travar a interface do Flow Launcher.
+- **Tratamento Universal UTF-8**: Suporte robusto a caracteres acentuados no Windows para nomes de dispositivos (ex: "Alto-falantes").
+
+### 📦 v1.0.0
+- Lançamento inicial do plugin SoundSwitch para Flow Launcher.
+- Alternância de dispositivos de reprodução e gravação.
+- Suporte a perfis de áudio e controle de mudo do microfone.
+- Biblioteca JSON-RPC embutida e ícones visuais dedicados.
+
+---
+
 ## 👨‍💻 Autor
 
 Criado por **[landrozaum](https://github.com/landrozaum)**.
