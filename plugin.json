@@ -2,7 +2,7 @@
   "ID": "7bf70f7c-1aa6-4b41-9eeb-6a794a9f192e",
   "ActionKeyword": "ss",
   "Name": "SoundSwitch",
-  "Description": "Alterne dispositivos de reprodução, gravação, ative perfis e controle o mudo com SoundSwitch.",
+  "Description": "Switch audio playback, recording devices, profiles, and microphone mute with SoundSwitch.",
   "Author": "landrozaum",
   "Version": "1.2.0",
   "Language": "python",
