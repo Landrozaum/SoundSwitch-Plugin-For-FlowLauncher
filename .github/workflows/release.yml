@@ -1,0 +1,43 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get tag name
+        id: get_tag
+        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Package plugin into ZIP
+        run: |
+          mkdir -p dist
+          zip -r dist/SoundSwitch-FlowLauncher-${{ steps.get_tag.outputs.TAG }}.zip \
+            plugin.json \
+            main.py \
+            soundswitch_client.py \
+            requirements.txt \
+            Images/ \
+            lib/ \
+            LICENSE \
+            README.md \
+            -x "**/__pycache__/*" \
+            -x "**/.cache.json"
+
+      - name: Create GitHub Release and upload ZIP
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/SoundSwitch-FlowLauncher-${{ steps.get_tag.outputs.TAG }}.zip
+          generate_release_notes: true
+          name: "SoundSwitch Plugin ${{ steps.get_tag.outputs.TAG }}"
