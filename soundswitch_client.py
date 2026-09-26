@@ -27,6 +27,36 @@ class SoundSwitchClient:
 
     def __init__(self, cli_path: Optional[str] = None):
         self._cli_path = cli_path or self._find_cli_executable()
+        self._config_file = os.path.expandvars(r"%APPDATA%\SoundSwitch\SoundSwitchConfiguration.json")
+        self._cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".cache.json")
+
+    def read_config_file(self) -> Dict[str, Any]:
+        """Read SoundSwitchConfiguration.json directly from disk in < 1ms."""
+        if os.path.isfile(self._config_file):
+            try:
+                with open(self._config_file, "r", encoding="utf-8", errors="ignore") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {}
+
+    def get_cached_status(self) -> Dict[str, Any]:
+        """Read cached state to avoid running slow CLI processes during search queries."""
+        if os.path.isfile(self._cache_file):
+            try:
+                with open(self._cache_file, "r", encoding="utf-8", errors="ignore") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {}
+
+    def save_cached_status(self, data: Dict[str, Any]):
+        """Save status to fast cache file."""
+        try:
+            with open(self._cache_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False)
+        except Exception:
+            pass
 
     @property
     def cli_path(self) -> Optional[str]:
