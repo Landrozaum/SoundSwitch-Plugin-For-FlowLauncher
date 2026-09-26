@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-SoundSwitch Plugin for Flow Launcher (Ultra-Fast Zero-Latency Edition)
+SoundSwitch Plugin for Flow Launcher (v1.2.0 - Direct Target Switching)
 Author: landrozaum
 Repository: https://github.com/landrozaum/SoundSwitch-Plugin-For-FlowLauncher
 """
@@ -46,15 +46,21 @@ class SoundSwitchPlugin(FlowLauncher):
         super().__init__()
 
     def _background_refresh(self):
-        """Fetch fresh state from SoundSwitch CLI in background without blocking query."""
+        """Fetch fresh state and connected devices from SoundSwitch CLI in background."""
         try:
             status = self.client.get_status()
+            devices = self.client.get_devices()
+            profiles = self.client.get_profiles()
             mute = self.client.get_mute_state()
+
             cache_data = {
                 "timestamp": time.time(),
                 "playbackDevice": status.get("playbackDevice"),
                 "recordingDevice": status.get("recordingDevice"),
                 "activeProfile": status.get("activeProfile"),
+                "playbackDevices": devices.get("playbackDevices", []),
+                "recordingDevices": devices.get("recordingDevices", []),
+                "profiles": profiles,
                 "isMuted": mute.get("isMuted", False),
                 "muteDevice": mute.get("deviceName")
             }
@@ -80,15 +86,14 @@ class SoundSwitchPlugin(FlowLauncher):
                 }
             ]
 
-        # 1. Instant Cache & Config Read (< 1ms, zero blocking)
+        # 1. Instant Cache (< 1ms, zero blocking)
         cached = self.client.get_cached_status()
-        config = self.client.read_config_file()
 
         now = time.time()
         last_time = cached.get("timestamp", 0)
 
         # Trigger background refresh if cache is older than 20 seconds or missing
-        if now - last_time > 20:
+        if now - last_time > 20 or not cached:
             threading.Thread(target=self._background_refresh, daemon=True).start()
 
         current_playback = cached.get("playbackDevice")
@@ -96,13 +101,18 @@ class SoundSwitchPlugin(FlowLauncher):
         active_profile = cached.get("activeProfile")
         is_muted = cached.get("isMuted")
 
+        # ONLY CONNECTED DEVICES (from SoundSwitch devices CLI, never disconnected/offline devices)
+        pb_devs = cached.get("playbackDevices", [])
+        rec_devs = cached.get("recordingDevices", [])
+        profiles = cached.get("profiles", [])
+
         # Fallback names if not yet cached
         pb_label = f" ({current_playback})" if current_playback else ""
         rec_label = f" ({current_recording})" if current_recording else ""
 
         results = []
 
-        # 1. Playback Switch Item (Instant Enter!)
+        # 1. Playback Switch Item (Cycles to next sound)
         results.append({
             "Title": f"Alternar Reprodução{pb_label}",
             "SubTitle": "Pressione Enter para alternar para o próximo som",
@@ -116,7 +126,7 @@ class SoundSwitchPlugin(FlowLauncher):
             }
         })
 
-        # 2. Recording Switch Item (Instant Enter!)
+        # 2. Recording Switch Item (Cycles to next mic)
         results.append({
             "Title": f"Alternar Gravação{rec_label}",
             "SubTitle": "Pressione Enter para alternar para o próximo microfone",
@@ -157,13 +167,55 @@ class SoundSwitchPlugin(FlowLauncher):
             }
         })
 
-        # 4. Audio Profiles from fast config file (< 0.5ms)
-        raw_profiles = config.get("Profiles", [])
-        if raw_profiles:
-            for p in raw_profiles:
-                p_name = p.get("Name") if isinstance(p, dict) else str(p)
-                if not p_name:
-                    continue
+        # 4. Connected Playback Devices (Direct Select!)
+        for dev in pb_devs:
+            is_curr = (current_playback and (dev.lower() == current_playback.lower() or dev.lower() in current_playback.lower()))
+            if is_curr:
+                dev_title = f"Saída: {dev} ✓ Ativo"
+                dev_sub = "Dispositivo atualmente em uso. Pressione Enter para permanecer."
+            else:
+                dev_title = f"Saída: {dev}"
+                dev_sub = "Pressione Enter para mudar diretamente para este dispositivo de som."
+
+            results.append({
+                "Title": dev_title,
+                "SubTitle": dev_sub,
+                "IcoPath": "Images/playback.png" if is_curr else "Images/device.png",
+                "Score": 88 if is_curr else 82,
+                "category": "playback_device",
+                "JsonRPCAction": {
+                    "method": "select_playback_device",
+                    "parameters": [dev],
+                    "dontHideAfterAction": False
+                }
+            })
+
+        # 5. Connected Recording Devices (Direct Select!)
+        for dev in rec_devs:
+            is_curr = (current_recording and (dev.lower() == current_recording.lower() or dev.lower() in current_recording.lower()))
+            if is_curr:
+                dev_title = f"Entrada: {dev} ✓ Ativo"
+                dev_sub = "Microfone atualmente em uso. Pressione Enter para permanecer."
+            else:
+                dev_title = f"Entrada: {dev}"
+                dev_sub = "Pressione Enter para mudar diretamente para este microfone."
+
+            results.append({
+                "Title": dev_title,
+                "SubTitle": dev_sub,
+                "IcoPath": "Images/recording.png" if is_curr else "Images/device.png",
+                "Score": 86 if is_curr else 80,
+                "category": "recording_device",
+                "JsonRPCAction": {
+                    "method": "select_recording_device",
+                    "parameters": [dev],
+                    "dontHideAfterAction": False
+                }
+            })
+
+        # 6. Audio Profiles
+        if profiles:
+            for p_name in profiles:
                 is_this_active = (active_profile and active_profile.lower() == p_name.lower())
                 p_title = f"Perfil: {p_name}" + (" [ATIVO]" if is_this_active else "")
                 p_subtitle = "Perfil atualmente ativo" if is_this_active else "Pressione Enter para ativar este perfil"
@@ -171,7 +223,7 @@ class SoundSwitchPlugin(FlowLauncher):
                     "Title": p_title,
                     "SubTitle": p_subtitle,
                     "IcoPath": "Images/profile.png",
-                    "Score": 86 if is_this_active else 85,
+                    "Score": 76 if is_this_active else 75,
                     "category": "profile",
                     "JsonRPCAction": {
                         "method": "switch_profile",
@@ -179,58 +231,8 @@ class SoundSwitchPlugin(FlowLauncher):
                         "dontHideAfterAction": False
                     }
                 })
-        else:
-            results.append({
-                "Title": "Perfis de Áudio: Nenhum perfil cadastrado",
-                "SubTitle": "Abra as configurações do SoundSwitch para criar perfis personalizados",
-                "IcoPath": "Images/profile.png",
-                "Score": 75,
-                "category": "profile",
-                "JsonRPCAction": {
-                    "method": "open_settings",
-                    "parameters": [],
-                    "dontHideAfterAction": False
-                }
-            })
 
-        # 5. Devices configured in SoundSwitch (< 0.5ms)
-        raw_devices = config.get("SelectedDevices", [])
-        for dev in raw_devices:
-            dev_name = dev.get("NameClean") or dev.get("Name")
-            dev_type = dev.get("Type", 0) # 0 = Playback, 1 = Recording
-            if not dev_name:
-                continue
-
-            if dev_type == 0:
-                is_curr = (current_playback and dev_name.lower() in current_playback.lower())
-                results.append({
-                    "Title": f"Saída: {dev_name}" + (" ✓ Ativo" if is_curr else ""),
-                    "SubTitle": "Dispositivo configurado no SoundSwitch para reprodução",
-                    "IcoPath": "Images/device.png",
-                    "Score": 70 if is_curr else 65,
-                    "category": "devices",
-                    "JsonRPCAction": {
-                        "method": "switch_playback",
-                        "parameters": [],
-                        "dontHideAfterAction": False
-                    }
-                })
-            else:
-                is_curr = (current_recording and dev_name.lower() in current_recording.lower())
-                results.append({
-                    "Title": f"Entrada: {dev_name}" + (" ✓ Ativo" if is_curr else ""),
-                    "SubTitle": "Dispositivo configurado no SoundSwitch para gravação",
-                    "IcoPath": "Images/recording.png",
-                    "Score": 68 if is_curr else 63,
-                    "category": "devices",
-                    "JsonRPCAction": {
-                        "method": "switch_recording",
-                        "parameters": [],
-                        "dontHideAfterAction": False
-                    }
-                })
-
-        # 6. Settings Item
+        # 7. Settings Item
         results.append({
             "Title": "Configurações do SoundSwitch",
             "SubTitle": "Abrir o painel de preferências, perfis e atalhos do SoundSwitch",
@@ -250,10 +252,10 @@ class SoundSwitchPlugin(FlowLauncher):
 
         # Fast Subcommand Shortcuts
         if q in ("play", "playback", "saida", "som", "audio"):
-            return [r for r in results if r.get("category") == "playback" or (r.get("category") == "devices" and "Saída" in r.get("Title", ""))]
+            return [r for r in results if r.get("category") in ("playback", "playback_device")]
 
         if q in ("rec", "recording", "mic", "microfone", "gravacao"):
-            return [r for r in results if r.get("category") == "recording" or (r.get("category") == "devices" and "Entrada" in r.get("Title", ""))]
+            return [r for r in results if r.get("category") in ("recording", "recording_device")]
 
         if q in ("mute", "unmute", "mudo", "desmutar", "toggle"):
             return [r for r in results if r.get("category") == "mute"]
@@ -262,12 +264,12 @@ class SoundSwitchPlugin(FlowLauncher):
             return [r for r in results if r.get("category") == "profile"]
 
         if q in ("devices", "dev", "dispositivos"):
-            return [r for r in results if r.get("category") == "devices"]
+            return [r for r in results if r.get("category") in ("playback_device", "recording_device")]
 
         if q in ("settings", "set", "config", "configuracoes"):
             return [r for r in results if r.get("category") == "settings"]
 
-        # Text search
+        # Text search (e.g., 'ss fifine' will find and prioritize the Fifine device directly)
         filtered = []
         tokens = q.split()
         for item in results:
@@ -278,38 +280,88 @@ class SoundSwitchPlugin(FlowLauncher):
         if not filtered:
             filtered.append({
                 "Title": f"Nenhuma opção para '{query}'",
-                "SubTitle": "Tente 'ss play', 'ss rec', 'ss mute', 'ss profile', 'ss devices' ou 'ss settings'",
+                "SubTitle": "Tente 'ss play', 'ss rec', 'ss mute', 'ss profile', 'ss devices' ou o nome do seu fone/mic",
                 "IcoPath": "Images/icon.png"
             })
 
         return filtered
 
     # Action Methods called via Flow Launcher JSON-RPC
+    def select_playback_device(self, target_device: str):
+        """Switch directly to target device, or stay if already on it."""
+        status = self.client.get_status()
+        current = status.get("playbackDevice", "")
+
+        # Check if already active
+        if target_device.lower() in current.lower() or current.lower() in target_device.lower():
+            FlowLauncherAPI.show_msg("SoundSwitch", f"{target_device} já é o dispositivo ativo!", "Images/playback.png")
+            return
+
+        success = self.client.switch_to_playback_device(target_device)
+        new_status = self.client.get_status()
+        new_current = new_status.get("playbackDevice", target_device)
+
+        # Update cache immediately
+        cached = self.client.get_cached_status()
+        cached["playbackDevice"] = new_current
+        cached["timestamp"] = time.time()
+        self.client.save_cached_status(cached)
+
+        if success:
+            FlowLauncherAPI.show_msg("SoundSwitch", f"Áudio alterado para: {new_current}", "Images/playback.png")
+        else:
+            FlowLauncherAPI.show_msg("SoundSwitch", f"Dispositivo selecionado: {new_current}", "Images/playback.png")
+
+    def select_recording_device(self, target_device: str):
+        """Switch directly to target microphone, or stay if already on it."""
+        status = self.client.get_status()
+        current = status.get("recordingDevice", "")
+
+        # Check if already active
+        if target_device.lower() in current.lower() or current.lower() in target_device.lower():
+            FlowLauncherAPI.show_msg("SoundSwitch", f"{target_device} já é o microfone ativo!", "Images/recording.png")
+            return
+
+        success = self.client.switch_to_recording_device(target_device)
+        new_status = self.client.get_status()
+        new_current = new_status.get("recordingDevice", target_device)
+
+        # Update cache immediately
+        cached = self.client.get_cached_status()
+        cached["recordingDevice"] = new_current
+        cached["timestamp"] = time.time()
+        self.client.save_cached_status(cached)
+
+        if success:
+            FlowLauncherAPI.show_msg("SoundSwitch", f"Microfone alterado para: {new_current}", "Images/recording.png")
+        else:
+            FlowLauncherAPI.show_msg("SoundSwitch", f"Microfone selecionado: {new_current}", "Images/recording.png")
+
     def switch_playback(self):
-        success = self.client.switch_playback()
+        """Cycle to next playback device."""
+        self.client.switch_playback()
         try:
             new_status = self.client.get_status()
-            current = new_status.get("playbackDevice", "Próximo dispositivo")
-            # Update cache immediately
+            current = new_status.get("playbackDevice", "Próximo som")
             cached = self.client.get_cached_status()
             cached["playbackDevice"] = current
             cached["timestamp"] = time.time()
             self.client.save_cached_status(cached)
-            FlowLauncherAPI.show_msg("SoundSwitch", f"Áudio alterado: {current}", "Images/playback.png")
+            FlowLauncherAPI.show_msg("SoundSwitch", f"Áudio alternado para: {current}", "Images/playback.png")
         except Exception:
-            FlowLauncherAPI.show_msg("SoundSwitch", "Dispositivo de áudio alternado!", "Images/playback.png")
+            FlowLauncherAPI.show_msg("SoundSwitch", "Dispositivo de reprodução alternado!", "Images/playback.png")
 
     def switch_recording(self):
-        success = self.client.switch_recording()
+        """Cycle to next recording device."""
+        self.client.switch_recording()
         try:
             new_status = self.client.get_status()
             current = new_status.get("recordingDevice", "Próximo microfone")
-            # Update cache immediately
             cached = self.client.get_cached_status()
             cached["recordingDevice"] = current
             cached["timestamp"] = time.time()
             self.client.save_cached_status(cached)
-            FlowLauncherAPI.show_msg("SoundSwitch", f"Microfone alterado: {current}", "Images/recording.png")
+            FlowLauncherAPI.show_msg("SoundSwitch", f"Microfone alternado para: {current}", "Images/recording.png")
         except Exception:
             FlowLauncherAPI.show_msg("SoundSwitch", "Dispositivo de gravação alternado!", "Images/recording.png")
 
@@ -327,7 +379,6 @@ class SoundSwitchPlugin(FlowLauncher):
     def toggle_mute(self):
         res = self.client.toggle_mute()
         is_muted = res.get("isMuted", False)
-        # Update cache immediately
         cached = self.client.get_cached_status()
         cached["isMuted"] = is_muted
         cached["timestamp"] = time.time()

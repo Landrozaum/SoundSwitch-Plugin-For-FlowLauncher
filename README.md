@@ -93,7 +93,12 @@ SoundSwitch-Plugin-For-FlowLauncher/
 
 ## 📜 Histórico de Versões
 
-### 🚀 v1.1.0 (Versão Atual)
+### 🎯 v1.2.0 (Versão Atual)
+- **Seleção Direta de Dispositivos**: Clicar em um dispositivo específico agora muda **diretamente para ele**. Se o dispositivo clicado já estiver ativo, ele permanece nele sem ciclar desnecessariamente.
+- **Apenas Dispositivos Conectados**: Filtro aprimorado para exibir apenas dispositivos de áudio que estão atualmente conectados e operacionais no Windows, ignorando dispositivos offline ou desconectados (como TVs desligadas ou fones bluetooth pareados no passado).
+- **Ações Contextuais Refinadas**: Subtítulos dinâmicos indicando claramente se a ação irá *"Mudar diretamente"* ou se o dispositivo *"Já está em uso"*.
+
+### 🚀 v1.1.0
 - **Zero-Latency Instant Query**: Otimização profunda de performance eliminando chamadas síncronas de subprocessos durante a busca.
 - **Ações Imediatas com Enter**: Digitar `ss` e apertar <kbd>Enter</kbd> agora funciona no mesmo milissegundo.
 - **Leitura Direta de Configurações**: Leitura instantânea (< 1 ms) do arquivo `SoundSwitchConfiguration.json` para dispositivos e perfis.

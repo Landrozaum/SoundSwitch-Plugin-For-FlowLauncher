@@ -224,10 +224,55 @@ class SoundSwitchClient:
         except Exception:
             return False
 
+    def switch_to_playback_device(self, target_device: str, max_cycles: int = 10) -> bool:
+        """
+        Switch directly to a specific playback device.
+        If already active, does nothing and returns True.
+        Otherwise cycles until target device is active.
+        """
+        status = self.get_status()
+        current = status.get("playbackDevice", "")
+        if target_device.lower() in current.lower() or current.lower() in target_device.lower():
+            return True # Already on target
+
+        devices_data = self.get_devices()
+        available = devices_data.get("playbackDevices", [])
+        cycles = min(max_cycles, max(len(available) + 1, 3))
+
+        for _ in range(cycles):
+            self.switch_playback()
+            status = self.get_status()
+            current = status.get("playbackDevice", "")
+            if target_device.lower() in current.lower() or current.lower() in target_device.lower():
+                return True
+        return False
+
+    def switch_to_recording_device(self, target_device: str, max_cycles: int = 10) -> bool:
+        """
+        Switch directly to a specific recording device.
+        If already active, does nothing and returns True.
+        Otherwise cycles until target device is active.
+        """
+        status = self.get_status()
+        current = status.get("recordingDevice", "")
+        if target_device.lower() in current.lower() or current.lower() in target_device.lower():
+            return True # Already on target
+
+        devices_data = self.get_devices()
+        available = devices_data.get("recordingDevices", [])
+        cycles = min(max_cycles, max(len(available) + 1, 3))
+
+        for _ in range(cycles):
+            self.switch_recording()
+            status = self.get_status()
+            current = status.get("recordingDevice", "")
+            if target_device.lower() in current.lower() or current.lower() in target_device.lower():
+                return True
+        return False
+
     def switch_profile(self, profile_name: str) -> bool:
         """Activate an audio profile by name."""
         try:
-            # profile --name "name"
             proc = self._run_command(["profile", "--name", profile_name])
             return proc.returncode == 0
         except Exception:

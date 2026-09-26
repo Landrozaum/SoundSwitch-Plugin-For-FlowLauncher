@@ -4,7 +4,7 @@
   "Name": "SoundSwitch",
   "Description": "Alterne dispositivos de reprodução, gravação, ative perfis e controle o mudo com SoundSwitch.",
   "Author": "landrozaum",
-  "Version": "1.1.0",
+  "Version": "1.2.0",
   "Language": "python",
   "ExecuteFileName": "main.py",
   "IcoPath": "Images/icon.png",
